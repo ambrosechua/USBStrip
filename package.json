@@ -1,0 +1,16 @@
+{
+  "name": "USBStrip",
+  "version": "0.0.1",
+  "description": "USBStrip",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ambrosechua/USBStrip.git"
+  },
+  "dependencies": {
+    "express": "^4.12.4",
+    "serialport": "^2.0.5"
+  }
+}
