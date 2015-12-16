@@ -12,7 +12,7 @@ void setup() {
 }
 
 void loop() {
-  if (SerialUSB.available() > 1 && SerialUSB.read() == 0x10) {
+  if (SerialUSB.available() > 0) {
     byte command = SerialUSB.read();
     if (command == 0x11) {
       LED.sync();
@@ -35,7 +35,6 @@ void loop() {
     else {
       SerialUSB.write(0x1e);
     }
-    SerialUSB.flush();
   }
 }
 
