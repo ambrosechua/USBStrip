@@ -5,6 +5,9 @@ var serialPort = new SerialPort(process.argv[2], {
 	  baudrate: 115200
 });
 
+var lightstate = false;
+
+var tT;
 var leds = 37;
 
 var toHue = function (s) {
@@ -94,7 +97,7 @@ var slide = function (color, cb, time) {
 		i++;
 		if (i < leds) {
 			var c = color(i);
-			setTimeout(function () {
+			tT = setTimeout(function () {
 				writeLED(i, c[0], c[1], c[2], function () {
 					update(loop);	
 				});
@@ -113,7 +116,28 @@ var fade = function (color, cb) {
 
 serialPort.on("open", function () {
 	serialPort.on("data", function (d) {
-		//console.log(d);
+		var i = 0;
+		var read = () => {
+			if (d.length == i)
+				return null;
+			return d[i++];
+		};
+		var cmd;
+		while (cmd = read()) {
+			if (cmd == 0x17) {
+				var n = read();
+				if (n === null) {
+					break;
+				}
+				var state = n == 0xff;
+				// state
+				//state slide(() => { return [0, 0, 0]; }, () => {}, 20);
+				if (state) {
+					lightstate = !lightstate;
+					lightstate ? setLightness(0) : setLightness(1);
+				}
+			}
+		}
 	});
 	/*
 	setTimeout(function () {
@@ -185,7 +209,6 @@ app.get("/set/:i", function (req, res) {
 		}
 		if (Math.floor(toHue(state) / sp * 2) == Math.floor(i / sp * 2)) {
 			i = toHue(state);
-			console.log(i);
 			clearInterval(h);
 		}
 		flash(function (la) {
@@ -197,11 +220,13 @@ app.get("/set/:i", function (req, res) {
 
 });
 
-app.get("/lightness/set/:i", function (req, res) {
-	res.status(200).end();
+var lightnessT;
+var setLightness = (l) => {
+	clearTimeout(lightnessT);
+	clearTimeout(tT);
 
 	var from = lightness;
-	var to = req.params.i * 1;
+	var to = l * 1;
 
 	var a = function () {
 		flash(function (la) {
@@ -209,17 +234,28 @@ app.get("/lightness/set/:i", function (req, res) {
 		}, function () {
 			lightness = lightness + (to - from) * 0.02;
 			if ((to - from) < 0 ? lightness > to : lightness < to) {
-				setTimeout(function () {
+				lightnessT = setTimeout(function () {
 					a();
 				}, 16);
 			}
 			else {
 				lightness = to;
+				lightnessT = setTimeout(() => {
+					flash(() => { 
+						return hslToRgb(toHue(state) / 256, 1, lightness);
+					}, () => {
+					});
+				}, 16);
 			}
 		});
 	};
 
 	a();
+};
+app.get("/lightness/set/:i", function (req, res) {
+	res.status(200).end();
+	
+	setLightness(req.params.i);
 });
 
 app.get("/demo1/start", function (req, res) {
@@ -336,5 +372,4 @@ app.get("/demo2/stop", function (req, res) {
 
 	demo2 = false;
 });
-
 app.listen(8026);
