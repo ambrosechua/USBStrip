@@ -1,14 +1,20 @@
 var express = require("express");
 
-var SerialPort = require("serialport").SerialPort;
+var serialport = require("serialport");
+var SerialPort = serialport.SerialPort;
 var serialPort = new SerialPort(process.argv[2], {
-	  baudrate: 115200
+	baudrate: 115200,
+	flowControl: false
 });
 
-var lightstate = false;
+/*serialport.list((err, ports) => {
+	console.log(ports);
+});*/
+
+var lightstate = true;
 
 var tT;
-var leds = 37;
+var leds = 16;//273;
 
 var toHue = function (s) {
 	return Math.floor(s / 64 * 256 % 256);
@@ -36,8 +42,8 @@ var hslToRgb = function (h, s, l) {
 	return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 };
 
-var state = 42;
-var lightness = 0.5;
+var state = 3;//42;
+var lightness = 0.8;
 var h;
 var i = toHue(state);
 
@@ -114,6 +120,8 @@ var fade = function (color, cb) {
 
 };
 
+var isdone = true; 
+
 serialPort.on("open", function () {
 	serialPort.on("data", function (d) {
 		var i = 0;
@@ -129,12 +137,33 @@ serialPort.on("open", function () {
 				if (n === null) {
 					break;
 				}
-				var state = n == 0xff;
-				// state
-				//state slide(() => { return [0, 0, 0]; }, () => {}, 20);
-				if (state) {
-					lightstate = !lightstate;
-					lightstate ? setLightness(0) : setLightness(1);
+				var lstate = n == 0xff;
+				// lstate
+				//lstate slide(() => { return [0, 0, 0]; }, () => {}, 20);
+				if (lstate) {
+					//console.log("Tapped");
+					//var a = () => {
+					//	if (isdone) {
+							lightstate = !lightstate;
+					//		isdone = false;
+							//setLightness(lightstate ? 0 : 0.8, () => {
+							//	isdone = true;	
+							//});
+							var color = hslToRgb(toHue(state) / 256, 1, lightstate ? lightness : 0);
+							flash(() => {
+								return color;
+							}, () => {
+					//			isdone = true;
+							});
+					//	}
+					//	else {
+					//		setTimeout(a, 10);
+					//	}
+					//};
+					//a();
+				}
+				else {
+					//console.log("down");
 				}
 			}
 		}
@@ -221,9 +250,9 @@ app.get("/set/:i", function (req, res) {
 });
 
 var lightnessT;
-var setLightness = (l) => {
-	clearTimeout(lightnessT);
-	clearTimeout(tT);
+var setLightness = (l, done, delay) => {
+	//clearTimeout(lightnessT);
+	//clearTimeout(tT);
 
 	var from = lightness;
 	var to = l * 1;
@@ -236,7 +265,7 @@ var setLightness = (l) => {
 			if ((to - from) < 0 ? lightness > to : lightness < to) {
 				lightnessT = setTimeout(function () {
 					a();
-				}, 16);
+				}, delay == undefined ? 16 : delay);
 			}
 			else {
 				lightness = to;
@@ -244,8 +273,9 @@ var setLightness = (l) => {
 					flash(() => { 
 						return hslToRgb(toHue(state) / 256, 1, lightness);
 					}, () => {
+						done && done();
 					});
-				}, 16);
+				}, delay == undefined ? 16 : delay);
 			}
 		});
 	};
